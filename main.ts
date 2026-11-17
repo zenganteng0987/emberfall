@@ -12,7 +12,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -39,3 +39,16 @@ writeFileSync(
     game_path_max_bytes: 1000,
   }),
 );
+
+// Hand-in summary, added for Emberfall: walk what was just written and say what the
+// judge receives, so a run never ends in silence about its own output.
+function countFiles(dir: string): number {
+  let n = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    n += entry.isDirectory() ? countFiles(join(dir, entry.name)) : 1;
+  }
+  return n;
+}
+const gameFiles = countFiles(join(out, 'game'));
+const shotFiles = countFiles(join(out, 'screenshots'));
+console.log(`emberfall: handed in ${gameFiles} game files and ${shotFiles} screenshots; dossier at ${join(out, 'dossier.json')}`);
