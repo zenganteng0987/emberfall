@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emberfall — a round-based tactical FPS in the foundry yard</title>
+<link rel="stylesheet" href="./styles.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div id="app"></div>
+
+<!-- In-round HUD -->
+<div id="hud" class="hidden">
+  <div id="topbar">
+    <div class="team-score atk"><span class="team-name">EMBER</span><span id="score-atk">0</span></div>
+    <div id="clock"><div id="round-label">Round 1</div><div id="timer">1:40</div></div>
+    <div class="team-score def"><span id="score-def">0</span><span class="team-name">WARDENS</span></div>
+  </div>
+  <div id="charge-status"></div>
+  <div id="killfeed"></div>
+  <div id="crosshair"><span class="dot"></span></div>
+  <div id="hitmarker"></div>
+  <div id="damage-vignette"></div>
+  <div id="damage-dir"></div>
+  <div id="channel-wrap" class="hidden">
+    <div id="channel-label">Planting the core charge…</div>
+    <div id="channel-track"><div id="channel-bar"></div></div>
+  </div>
+  <div id="bottombar">
+    <div id="health-wrap">
+      <div id="health-num">100</div>
+      <div id="health-track"><div id="health-bar"></div></div>
+    </div>
+    <div id="money">$800</div>
+    <div id="weapon-box">
+      <div id="weapon-name">P9 Pistol</div>
+      <div id="ammo"><span id="ammo-mag">12</span><span id="ammo-reserve"> / 48</span></div>
+    </div>
+  </div>
+  <div id="eliminated-note" class="hidden">Eliminated — your team fights on without you this round.</div>
+</div>
+
+<div id="banner" class="hidden">
+  <div id="banner-title"></div>
+  <div id="banner-sub"></div>
+</div>
+
+<!-- Title screen -->
+<section id="title-screen">
+  <h1 id="game-title">EMBERFALL</h1>
+  <p id="game-tagline">A round-based tactical FPS in a dusk foundry yard.</p>
+  <div id="briefing">
+    <p><strong>Your side:</strong> Ember, attacking. Plant the <em>core charge</em> at Site A or Site B and hold until it blows — or wipe the Wardens out. They win a round by stopping the plant, defusing, or running out the clock.</p>
+    <p><strong>The match:</strong> 4 v 4 with bot teams. First to 5 rounds takes it, 9 at most. Win rounds and score kills to earn money; spend it in the 12-second buy phase on stronger guns.</p>
+    <p><strong>Controls:</strong> WASD move · mouse aim · click shoot · R reload · hold E plant / defuse · 1–5 buy · Shift steady · P pause · M mute.</p>
+  </div>
+  <button id="play-btn" type="button">Play</button>
+  <p id="title-hint">Best with keyboard and mouse. Sound on, if you can.</p>
+</section>
+
+<!-- Buy menu -->
+<section id="buy-menu" class="hidden">
+  <h2 id="buy-title">Buy phase — <span id="buy-timer">12</span>s</h2>
+  <p id="buy-money-line">You have <span id="buy-money">$800</span></p>
+  <div id="buy-grid"></div>
+  <p id="buy-hint">Press 1–5 or click a card. The round starts when the timer ends — click the yard to take aim.</p>
+</section>
+
+<!-- Match end -->
+<section id="end-screen" class="hidden">
+  <h2 id="end-title">Victory</h2>
+  <p id="end-sub"></p>
+  <table id="end-stats">
+    <thead><tr><th>Fighter</th><th>Team</th><th>Kills</th><th>Deaths</th></tr></thead>
+    <tbody id="end-stats-body"></tbody>
+  </table>
+  <button id="again-btn" type="button">Play again</button>
+</section>
+
+<!-- Pause -->
+<section id="pause-screen" class="hidden">
+  <h2>Paused</h2>
+  <p>The foundry waits.</p>
+  <button id="resume-btn" type="button">Resume</button>
+</section>
+
+<div id="lock-prompt" class="hidden">Click the yard to take aim</div>
+<div id="toast" class="hidden"></div>
+<p id="status" role="status" aria-live="polite"></p>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
