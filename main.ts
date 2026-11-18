@@ -12,7 +12,7 @@
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
@@ -49,6 +49,22 @@ function countFiles(dir: string): number {
   }
   return n;
 }
+/** Total bytes of every file under a directory, recursively. */
+function totalBytes(dir: string): number {
+  let n = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    n += entry.isDirectory() ? totalBytes(p) : statSync(p).size;
+  }
+  return n;
+}
 const gameFiles = countFiles(join(out, 'game'));
+const gameBytes = totalBytes(join(out, 'game'));
 const shotFiles = countFiles(join(out, 'screenshots'));
-console.log(`emberfall: handed in ${gameFiles} game files and ${shotFiles} screenshots; dossier at ${join(out, 'dossier.json')}`);
+const shotList = readdirSync(join(out, 'screenshots'))
+  .sort()
+  .map((name) => `${name} ${statSync(join(out, 'screenshots', name)).size} B`)
+  .join(', ');
+const dossierBytes = statSync(join(out, 'dossier.json')).size;
+console.log(`emberfall: handed in ${gameFiles} game files (${gameBytes} bytes) and ${shotFiles} screenshots; dossier at ${join(out, 'dossier.json')} (${dossierBytes} bytes)`);
+console.log(`emberfall: screenshots — ${shotList}`);

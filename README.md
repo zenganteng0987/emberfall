@@ -12,6 +12,13 @@ You lead the Ember team, attacking. Plant the *core charge* at Site A or Site B 
 - **Weapons:** P9 Pistol (standard issue) · K7 SMG $1,200 · M870 Shotgun $1,600 · AR-4 Rifle $2,700 · Longshot Sniper $3,400
 - **Economy:** start $800 · round win +$3,250 · round loss +$1,400 · kill +$300
 
+## This build
+
+- **Feedback:** every hit shows its damage next to the crosshair, pooled while shots keep landing; a kill is confirmed by name with its $300 bounty; health pulses red under 35.
+- **Bots with routes:** Vesper flanks through the mid door instead of pushing with the pack, and Petra roams between mid and the two site posts, so neither team stands where it stood last round.
+- **Gun character:** sustained fire blooms each weapon's spread by its own amount — tap the P9, burst the AR-4, never lean on the Longshot. Buy cards carry a one-line character note and the exact shortfall when a gun is out of reach.
+- **The yard, dressed:** furnace vents, rim steam pipes, gantry beams with work lamps over the hall, and lit posts at the corners of both charge sites.
+
 ## Play it
 
 The game is static files under `game/` with no build step and no network requests. Serve the folder with any static server and open it in a desktop browser:
