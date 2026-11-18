@@ -1,6 +1,7 @@
 // bots.js — one job: the seven bot fighters. It gives each bot a brain (a plan for the
 // round, a path along the foundry's waypoint graph, eyes that check line of sight, and
-// simple states: advance, engage, hold, plant, defuse, fetch the dropped charge) and a
+// simple states: advance, engage, hold, plant, defuse, fetch the dropped charge, flank
+// by a two-leg route, roam between two posts) and a
 // body (the low-poly fighter meshes the renderer shows, with team colours and name
 // plates). Bots only ever write their fighter's intent; match.js moves and shoots them.
 
@@ -47,13 +48,16 @@ function findPath(map, fromX, fromZ, toX, toZ) {
   return path;
 }
 
-/** A bot's working memory: its goal, its path, who it can see and how long it has aimed. */
+/** A bot's working memory: its goal, its path, who it can see and how long it has aimed.
+ *  `legs` is a route of follow-on goals (a flanker's way in); `roamPoints` with
+ *  `holdT` makes a defender alternate between two posts, watching each a while. */
 function makeBrain(rng) {
   return {
     goal: null, goalKind: 'hold', path: [], pathI: 0, repathT: rngRange(rng, 0, 2),
     thinkT: rngRange(rng, 0, PERCEIVE_EVERY), targetId: -1, lastSeen: null, seenAgo: 9,
     aimT: 0, reaction: rngRange(rng, 0.3, 0.55), burstT: 0, bursting: false,
     scanPhase: rngRange(rng, 0, Math.PI * 2), strafeDir: 1, strafeT: 0,
+    legs: [], holdT: 0, roamPoints: null, roamI: 0,
   };
 }
 
@@ -129,6 +133,12 @@ export function createBots(match) {
     const sites = match.map.sites;
     const target = sites[match.targetSite];
     const other = sites[match.targetSite === 'A' ? 'B' : 'A'];
+    for (const b of brains.values()) {
+      b.legs = [];
+      b.holdT = 0;
+      b.roamPoints = null;
+      b.roamI = 0;
+    }
     const defs = match.fighters.filter((f) => f.team === 'def');
     const defGoals = [
       { x: 14, z: target.z > 0 ? 10.5 : -10.5, kind: 'hold' },
@@ -142,6 +152,17 @@ export function createBots(match) {
       b.goalKind = 'hold';
       b.path = [];
     });
+    // The fourth Warden roams: mid first, then a site post, then the other one,
+    // so the defence is never standing exactly where it stood last round.
+    const roamer = defs[3];
+    if (roamer) {
+      const b = brains.get(roamer.id);
+      b.roamPoints = [
+        { x: defGoals[0].x, z: defGoals[0].z },
+        { x: defGoals[2].x, z: defGoals[2].z },
+      ];
+      b.holdT = 2.5;
+    }
     for (const f of match.fighters) {
       if (f.team !== 'atk' || f.isPlayer) continue;
       const b = brains.get(f.id);
@@ -149,6 +170,11 @@ export function createBots(match) {
         b.goal = { x: target.x, z: target.z, kind: 'plant' };
       } else if (f.id === 2) {
         b.goal = { x: other.x, z: other.z, kind: 'probe' }; // Rook feels out the far site.
+      } else if (f.id === 3) {
+        // Vesper flanks: in through the mid door, then onto the planned site, so
+        // Ember never arrives from one direction only.
+        b.goal = { x: 12.6, z: 0, kind: 'flank' };
+        b.legs = [{ x: target.x + rngRange(rng, -2, 2), z: target.z + rngRange(rng, -2, 2), kind: 'push' }];
       } else {
         b.goal = { x: target.x + rngRange(rng, -2, 2), z: target.z + rngRange(rng, -2, 2), kind: 'push' };
       }
@@ -276,6 +302,7 @@ export function createBots(match) {
 
     // The planted charge rearranges everyone's priorities.
     if (charge.state === 'planted') {
+      b.legs = [];
       if (f.team === 'def') {
         b.goal = { x: charge.x, z: charge.z, kind: 'defuse' };
         b.goalKind = 'defuse';
@@ -289,11 +316,13 @@ export function createBots(match) {
       if (carrier) {
         b.goal = { x: charge.x, z: charge.z, kind: 'fetch' };
         b.goalKind = 'fetch';
+        b.legs = [];
       }
     } else if (charge.state === 'carried' && charge.carrierId === f.id) {
       const site = match.map.sites[match.targetSite];
       b.goal = { x: site.x, z: site.z, kind: 'plant' };
       b.goalKind = 'plant';
+      b.legs = [];
     }
 
     const target = b.targetId >= 0 ? match.fighters[b.targetId] : null;
@@ -307,13 +336,34 @@ export function createBots(match) {
 
     const arrived = followPath(f, b, dt);
     if (!arrived) return;
+    // A flanker walks a route of legs: reaching one hands over to the next.
+    if (b.legs.length > 0) {
+      const next = b.legs.shift();
+      b.goal = next;
+      b.goalKind = next.kind;
+      b.path = [];
+      return;
+    }
     if (b.goalKind === 'plant' && charge.state === 'carried' && charge.carrierId === f.id) {
       f.intent.channel = true;
       f.yaw = turnToward(f.yaw, f.team === 'atk' ? Math.PI / 2 : -Math.PI / 2, dt * 4);
     } else if (b.goalKind === 'defuse' && charge.state === 'planted') {
       f.intent.channel = true;
     } else {
-      // Holding: watch the approaches, sweeping a slow arc.
+      // Holding: watch the approaches, sweeping a slow arc. A roamer holds its
+      // post a few seconds, then walks to its other post and holds there instead.
+      if (b.roamPoints) {
+        if (b.holdT > 0) {
+          b.holdT -= dt;
+        } else {
+          b.roamI = (b.roamI + 1) % b.roamPoints.length;
+          b.goal = { ...b.roamPoints[b.roamI], kind: 'roam' };
+          b.goalKind = 'roam';
+          b.path = [];
+          b.holdT = 3.5;
+          return;
+        }
+      }
       f.yaw += Math.sin(simNow * 0.6 + b.scanPhase) * dt * 0.55;
       f.pitch = 0;
       if (f.ammo.mag < WEAPON_BY_ID[f.weaponId].mag * 0.4) startReload(match, f);

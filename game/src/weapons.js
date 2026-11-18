@@ -6,13 +6,16 @@
 
 import { EYE } from './foundry-map.js';
 
-/** The armoury, in buy-menu order (keys 1-5). Damage is per pellet that lands. */
+/** The armoury, in buy-menu order (keys 1-5). Damage is per pellet that lands.
+ *  `bloom` is the spread heat one shot adds: sustained fire widens the cone until
+ *  the trigger rests, so each gun has its own rhythm — tap the P9, burst the AR-4,
+ *  and never lean on the Longshot. `blurb` is the buy card's one-line character. */
 export const WEAPONS = [
-  { id: 'p9', name: 'P9 Pistol', price: 0, damage: 26, headMult: 3.4, rpm: 380, mag: 12, reserve: 48, spread: 0.011, pellets: 1, auto: false, reload: 1.1, move: 1.0, fall: { from: 14, to: 46, min: 0.5 }, kind: 'pistol' },
-  { id: 'k7', name: 'K7 SMG', price: 1200, damage: 21, headMult: 3.0, rpm: 780, mag: 28, reserve: 84, spread: 0.02, pellets: 1, auto: true, reload: 1.6, move: 1.03, fall: { from: 10, to: 34, min: 0.45 }, kind: 'smg' },
-  { id: 'm870', name: 'M870 Shotgun', price: 1600, damage: 10, headMult: 1.8, rpm: 68, mag: 6, reserve: 24, spread: 0.055, pellets: 8, auto: false, reload: 2.4, move: 1.04, fall: { from: 6, to: 20, min: 0.25 }, kind: 'shotgun' },
-  { id: 'ar4', name: 'AR-4 Rifle', price: 2700, damage: 33, headMult: 3.6, rpm: 640, mag: 25, reserve: 75, spread: 0.014, pellets: 1, auto: true, reload: 1.9, move: 0.98, fall: { from: 18, to: 55, min: 0.6 }, kind: 'rifle' },
-  { id: 'longshot', name: 'Longshot Sniper', price: 3400, damage: 96, headMult: 2.0, rpm: 42, mag: 5, reserve: 15, spread: 0.0015, pellets: 1, auto: false, reload: 2.6, move: 0.94, fall: null, kind: 'sniper', scope: true },
+  { id: 'p9', name: 'P9 Pistol', price: 0, damage: 26, headMult: 3.4, rpm: 380, mag: 12, reserve: 48, spread: 0.011, pellets: 1, auto: false, reload: 1.1, move: 1.0, fall: { from: 14, to: 46, min: 0.5 }, kind: 'pistol', bloom: 0.1, blurb: 'Sidearm — crisp and honest, free every round' },
+  { id: 'k7', name: 'K7 SMG', price: 1200, damage: 21, headMult: 3.0, rpm: 780, mag: 28, reserve: 84, spread: 0.02, pellets: 1, auto: true, reload: 1.6, move: 1.03, fall: { from: 10, to: 34, min: 0.45 }, kind: 'smg', bloom: 0.06, blurb: 'Spray gun — loud, fast and best up close' },
+  { id: 'm870', name: 'M870 Shotgun', price: 1600, damage: 10, headMult: 1.8, rpm: 68, mag: 6, reserve: 24, spread: 0.055, pellets: 8, auto: false, reload: 2.4, move: 1.04, fall: { from: 6, to: 20, min: 0.25 }, kind: 'shotgun', bloom: 0.25, blurb: 'Room clearer — eight pellets, one slow pump' },
+  { id: 'ar4', name: 'AR-4 Rifle', price: 2700, damage: 33, headMult: 3.6, rpm: 640, mag: 25, reserve: 75, spread: 0.014, pellets: 1, auto: true, reload: 1.9, move: 0.98, fall: { from: 18, to: 55, min: 0.6 }, kind: 'rifle', bloom: 0.07, blurb: 'All-round rifle — the foundry standard' },
+  { id: 'longshot', name: 'Longshot Sniper', price: 3400, damage: 96, headMult: 2.0, rpm: 42, mag: 5, reserve: 15, spread: 0.0015, pellets: 1, auto: false, reload: 2.6, move: 0.94, fall: null, kind: 'sniper', scope: true, bloom: 0.4, blurb: 'Long lanes — one shot ends it; right-click to scope' },
 ];
 
 export const WEAPON_BY_ID = Object.fromEntries(WEAPONS.map((w) => [w.id, w]));
@@ -142,7 +145,8 @@ function fireOnce(match, f, weapon) {
   const oz = f.pos.z;
   const enemies = match.fighters.filter((o) => o.team !== f.team);
   const moving = Math.hypot(f.vel.x, f.vel.z) > 0.6;
-  const spreadMul = (moving ? 1.8 : 1) * (f.aimSpreadMul ?? 1);
+  const spreadMul = (moving ? 1.8 : 1) * (f.aimSpreadMul ?? 1) * (1 + (f.heat ?? 0));
+  f.heat = Math.min(0.8, (f.heat ?? 0) + weapon.bloom);
   f.ammo.mag -= 1;
   match.fx.push({ type: 'muzzle', fighter: f.id });
   match.fx.push({ type: 'sound', name: 'shot', kind: weapon.kind, by: f.id, x: ox, z: oz });
@@ -176,6 +180,7 @@ function fireOnce(match, f, weapon) {
 export function stepWeapon(match, f, dt) {
   if (!f.alive) return;
   const weapon = WEAPON_BY_ID[f.weaponId];
+  f.heat = Math.max(0, (f.heat ?? 0) - dt * 3);
   if (f.fireCd > 0) f.fireCd -= dt;
   if (f.reloading > 0) {
     f.reloading -= dt;

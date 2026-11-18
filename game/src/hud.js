@@ -1,11 +1,12 @@
 // hud.js — one job: everything drawn in DOM. The in-round HUD (health, money, ammo,
-// clock, scores, charge status, kill feed, hitmarker, damage direction, plant channel
-// bar), the centre banner, and the four screens (title, buy menu, match end, pause).
+// clock, scores, charge status, kill feed, hitmarker, kill confirm, damage dealt,
+// damage direction, plant channel bar), the centre banner, and the four screens
+// (title, buy menu, match end, pause).
 // It reads match state and writes elements; it never changes the simulation. Buttons
 // and buy cards call back into main.js through the hooks it is given.
 
 import { WEAPONS, WEAPON_BY_ID } from './weapons.js';
-import { PLANT_SECONDS, DEFUSE_SECONDS, TEAM_NAMES } from './match.js';
+import { PLANT_SECONDS, DEFUSE_SECONDS, TEAM_NAMES, KILL_PAY } from './match.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -25,6 +26,7 @@ export function createHud(hooks) {
     ammoMag: $('ammo-mag'), ammoReserve: $('ammo-reserve'),
     channelWrap: $('channel-wrap'), channelLabel: $('channel-label'), channelBar: $('channel-bar'),
     eliminated: $('eliminated-note'), hitmarker: $('hitmarker'),
+    killConfirm: $('kill-confirm'), damageNum: $('damage-num'),
     vignette: $('damage-vignette'), damageDir: $('damage-dir'),
     banner: $('banner'), bannerTitle: $('banner-title'), bannerSub: $('banner-sub'),
     title: $('title-screen'), buy: $('buy-menu'), buyTimer: $('buy-timer'),
@@ -42,6 +44,9 @@ export function createHud(hooks) {
   let hitT = 0;
   let dmgT = 0;
   let toastT = 0;
+  let killConfirmT = 0;
+  let dmgNumT = 0;
+  let dmgAccum = 0;
   const feedRows = [];
 
   const hud = {
@@ -94,6 +99,22 @@ export function createHud(hooks) {
       el.hitmarker.className = kill ? 'kill on' : 'on';
       hitT = kill ? 0.22 : 0.1;
     },
+    /** Confirm a kill the player scored: who fell, and the $300 it paid. */
+    killConfirm(victimName, head) {
+      el.killConfirm.textContent = head
+        ? `HEADSHOT — ${victimName} eliminated · +$${KILL_PAY}`
+        : `Eliminated ${victimName} · +$${KILL_PAY}`;
+      el.killConfirm.classList.remove('hidden');
+      killConfirmT = 1.15;
+    },
+    /** Show the damage the player's shots just dealt, pooled while they keep landing. */
+    damageDealt(amount) {
+      if (!(amount > 0)) return;
+      dmgAccum += amount;
+      el.damageNum.textContent = `−${Math.round(dmgAccum)}`;
+      el.damageNum.classList.remove('hidden');
+      dmgNumT = 0.55;
+    },
     /** Show the damage vignette and the arc toward whoever shot the player. */
     damageFrom(relAngle) {
       el.vignette.classList.add('on');
@@ -140,12 +161,21 @@ export function createHud(hooks) {
         const stat = document.createElement('div');
         stat.className = 'stat';
         stat.textContent = `Damage ${dmg} · ${w.rpm} rpm · ${w.mag} rounds`;
-        card.append(key, name, price, stat);
+        const blurb = document.createElement('div');
+        blurb.className = 'blurb';
+        blurb.textContent = w.blurb;
+        card.append(key, name, price, stat, blurb);
         if (owned) {
           const tag = document.createElement('div');
           tag.className = 'owned-tag';
           tag.textContent = 'IN HAND';
           card.append(tag);
+        }
+        if (cant) {
+          const short = document.createElement('div');
+          short.className = 'shortfall';
+          short.textContent = `Need $${w.price - player.money} more`;
+          card.append(short);
         }
         if (!cant && !owned) card.addEventListener('click', () => hooks.onBuy(w.id));
         el.buyGrid.append(card);
@@ -193,6 +223,7 @@ export function createHud(hooks) {
       }
       el.charge.textContent = chargeText(match);
       el.healthNum.textContent = String(Math.max(0, Math.ceil(player.hp)));
+      el.healthNum.classList.toggle('low', player.alive && player.hp <= 35);
       el.healthBar.style.width = `${Math.max(0, player.hp)}%`;
       el.money.textContent = `$${player.money}`;
       const w = WEAPON_BY_ID[player.weaponId];
@@ -233,6 +264,17 @@ export function createHud(hooks) {
       if (toastT > 0) {
         toastT -= dt;
         if (toastT <= 0) el.toast.classList.add('hidden');
+      }
+      if (killConfirmT > 0) {
+        killConfirmT -= dt;
+        if (killConfirmT <= 0) el.killConfirm.classList.add('hidden');
+      }
+      if (dmgNumT > 0) {
+        dmgNumT -= dt;
+        if (dmgNumT <= 0) {
+          el.damageNum.classList.add('hidden');
+          dmgAccum = 0;
+        }
       }
       for (let i = feedRows.length - 1; i >= 0; i -= 1) {
         feedRows[i].age += dt;

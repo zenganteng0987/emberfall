@@ -36,7 +36,7 @@ function makeFighter(id, name, team, isPlayer) {
     pos: { x: 0, z: 0 }, vel: { x: 0, z: 0 },
     yaw: 0, pitch: 0, hp: 100, alive: true, god: false,
     weaponId: 'p9', ammo: newAmmo(WEAPON_BY_ID.p9),
-    fireCd: 0, reloading: 0, dryCd: 0, aimSpreadMul: 1,
+    fireCd: 0, reloading: 0, dryCd: 0, aimSpreadMul: 1, heat: 0,
     money: START_MONEY, kills: 0, deaths: 0,
     channelT: 0, channelKind: null,
     intent: { mx: 0, mz: 0, fire: false, firePressed: false, channel: false },
@@ -76,6 +76,7 @@ export function createMatch(map, rng) {
       f.alive = true;
       f.fireCd = 0;
       f.reloading = 0;
+      f.heat = 0;
       f.channelT = 0;
       f.channelKind = null;
       f.intent.fire = false;
@@ -136,7 +137,7 @@ export function createMatch(map, rng) {
   match.damageFighter = (src, dst, dmg, head) => {
     if (!dst.alive || dst.god || match.phase !== 'live') return;
     dst.hp -= dmg;
-    match.events.push({ type: 'hit', srcId: src.id, dstId: dst.id, head: !!head });
+    match.events.push({ type: 'hit', srcId: src.id, dstId: dst.id, head: !!head, dmg: Math.round(dmg) });
     if (dst.hp > 0) return;
     dst.hp = 0;
     dst.alive = false;

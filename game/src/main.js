@@ -168,6 +168,7 @@ function drainEvents() {
       hud.feed(killer, victim, WEAPON_BY_ID[ev.weaponId].name, ev.head);
       if (killer.isPlayer) {
         hud.hitmark(true);
+        hud.killConfirm(victim.name, ev.head);
         audio.hit(true);
       }
     } else if (ev.type === 'hit') {
@@ -175,6 +176,7 @@ function drainEvents() {
       const dst = match.fighters[ev.dstId];
       if (src.isPlayer) {
         hud.hitmark(false);
+        hud.damageDealt(ev.dmg);
         audio.hit(false);
       }
       if (dst.isPlayer) {
@@ -192,7 +194,7 @@ function drainEvents() {
     } else if (ev.type === 'roundEnd') {
       hud.banner(
         `${TEAM_NAMES[ev.winner]} take the round`,
-        `Round ${ev.round} — ${ROUND_REASONS[ev.reason] ?? ''}`,
+        `Round ${ev.round} — ${ROUND_REASONS[ev.reason] ?? ''} · ${TEAM_NAMES.atk} ${match.wins.atk} — ${match.wins.def} ${TEAM_NAMES.def}`,
         ev.winner,
         3.4,
       );

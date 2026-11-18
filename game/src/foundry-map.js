@@ -1,5 +1,6 @@
 // foundry-map.js — one job: the Emberfall Foundry itself. It builds the three.js scenery
-// (ground, furnace hall, crates, lava channels, charge sites), and exports the data the
+// (ground, furnace hall, crates, lava channels, charge sites, and visual-only dressing:
+// furnace vents, rim pipes, gantry lamps, site posts), and exports the data the
 // simulation runs on: box colliders, the waypoint graph bots walk, the two charge sites
 // and both teams' spawn points. Layout, names and palette are this game's own: a dusk
 // foundry yard, ember orange against deep teal, about 44 by 44 metres.
@@ -390,6 +391,54 @@ export function buildFoundry(scene) {
     const light = new THREE.PointLight(0xff8c3b, 40, 11, 1.8);
     light.position.set(site.x, 2.2, site.z);
     scene.add(light);
+  }
+
+  // Dressing, visual only (none of it collides or blocks a sight line): glowing
+  // vents on the furnace block, steam pipes along the rim, gantry beams over the
+  // hall walls with hanging work lamps, and lit posts marking each site's corners.
+  const ventMat = new THREE.MeshBasicMaterial({ color: 0xff8c3b });
+  for (const zFace of [-4.04, 4.04]) {
+    for (const vx of [-2.6, 0, 2.6]) {
+      const vent = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.08), ventMat);
+      vent.position.set(vx, 2.3, zFace);
+      scene.add(vent);
+    }
+  }
+  for (const xFace of [-4.04, 4.04]) {
+    const vent = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.5, 0.8), ventMat);
+    vent.position.set(xFace, 2.3, 0);
+    scene.add(vent);
+  }
+  const pipeMat = new THREE.MeshLambertMaterial({ color: 0x39424b });
+  for (const [px, pz, alongX] of [[0, -22.3, true], [0, 22.3, true], [-22.3, 0, false], [22.3, 0, false]]) {
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 42, 8), pipeMat);
+    if (alongX) pipe.rotation.z = Math.PI / 2;
+    else pipe.rotation.x = Math.PI / 2;
+    pipe.position.set(px, 3.5, pz);
+    scene.add(pipe);
+  }
+  const beamMat = new THREE.MeshLambertMaterial({ color: 0x2c343c });
+  const lampMat = new THREE.MeshBasicMaterial({ color: 0xffc37a });
+  for (const bz of [-7, 7]) {
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(22.5, 0.35, 0.55), beamMat);
+    beam.position.set(0, 4.6, bz);
+    scene.add(beam);
+    for (const lx of [-6, 0, 6]) {
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), lampMat);
+      lamp.position.set(lx, 4.25, bz);
+      scene.add(lamp);
+    }
+  }
+  const postMat = new THREE.MeshLambertMaterial({ color: 0x23262a });
+  for (const site of Object.values(SITES)) {
+    for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 1.15, 8), postMat);
+      post.position.set(site.x + ox * (site.r + 0.55), 0.57, site.z + oz * (site.r + 0.55));
+      scene.add(post);
+      const tip = new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 6), lampMat);
+      tip.position.set(site.x + ox * (site.r + 0.55), 1.2, site.z + oz * (site.r + 0.55));
+      scene.add(tip);
+    }
   }
 
   return {
